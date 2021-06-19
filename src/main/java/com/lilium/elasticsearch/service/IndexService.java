@@ -2,6 +2,7 @@ package com.lilium.elasticsearch.service;
 
 import com.lilium.elasticsearch.helper.Indices;
 import com.lilium.elasticsearch.helper.Util;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.CreateIndexRequest;
@@ -18,7 +19,7 @@ import java.util.List;
 @Service
 public class IndexService {
     private static final Logger LOG = LoggerFactory.getLogger(IndexService.class);
-    private static final List<String> INDICES_TO_CREATE = List.of(Indices.VEHICLE_INDEX);
+    private static final List<String> INDICES = List.of(Indices.VEHICLE_INDEX);
     private final RestHighLevelClient client;
 
     @Autowired
@@ -28,30 +29,55 @@ public class IndexService {
 
     @PostConstruct
     public void tryToCreateIndices() {
+        recreateIndices(false);
+    }
+
+    public void recreateIndices(final boolean deleteExisting) {
         final String settings = Util.loadAsString("static/es-settings.json");
 
-        for (final String indexName : INDICES_TO_CREATE) {
+        if (settings == null) {
+            LOG.error("Failed to load index settings");
+            return;
+        }
+
+        for (final String indexName : INDICES) {
             try {
-                boolean indexExists = client
+                final boolean indexExists = client
                         .indices()
                         .exists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
                 if (indexExists) {
-                    continue;
+                    if (!deleteExisting) {
+                        continue;
+                    }
+
+                    client.indices().delete(
+                            new DeleteIndexRequest(indexName),
+                            RequestOptions.DEFAULT
+                    );
                 }
 
-                final String mappings = Util.loadAsString("static/mappings/" + indexName + ".json");
-                if (settings == null || mappings == null) {
-                    LOG.error("Filed to create index with name '{}'", indexName);
-                    continue;
-                }
                 final CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
                 createIndexRequest.settings(settings, XContentType.JSON);
-                createIndexRequest.mapping(mappings, XContentType.JSON);
+
+                final String mappings = loadMappings(indexName);
+                if (mappings != null) {
+                    createIndexRequest.mapping(mappings, XContentType.JSON);
+                }
 
                 client.indices().create(createIndexRequest, RequestOptions.DEFAULT);
             } catch (final Exception e) {
                 LOG.error(e.getMessage(), e);
             }
         }
+    }
+
+    private String loadMappings(String indexName) {
+        final String mappings = Util.loadAsString("static/mappings/" + indexName + ".json");
+        if (mappings == null) {
+            LOG.error("Failed to load mappings for index with name '{}'", indexName);
+            return null;
+        }
+
+        return mappings;
     }
 }

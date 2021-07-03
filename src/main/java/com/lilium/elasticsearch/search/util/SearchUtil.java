@@ -1,7 +1,6 @@
 package com.lilium.elasticsearch.search.util;
 
 import com.lilium.elasticsearch.search.SearchRequestDTO;
-import org.apache.lucene.util.CollectionUtil;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.index.query.MultiMatchQueryBuilder;
 import org.elasticsearch.index.query.Operator;
@@ -11,7 +10,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.util.CollectionUtils;
 
-import java.io.IOException;
+import java.util.Date;
 import java.util.List;
 
 public final class SearchUtil {
@@ -30,6 +29,23 @@ public final class SearchUtil {
                         dto.getOrder() != null ? dto.getOrder() : SortOrder.ASC
                 );
             }
+
+            final SearchRequest request = new SearchRequest(indexName);
+            request.source(builder);
+
+            return request;
+        } catch (final Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static SearchRequest buildSearchRequest(final String indexName,
+                                                   final String field,
+                                                   final Date date) {
+        try {
+            final SearchSourceBuilder builder = new SearchSourceBuilder()
+                    .postFilter(getQueryBuilder(field, date));
 
             final SearchRequest request = new SearchRequest(indexName);
             request.source(builder);
@@ -67,5 +83,9 @@ public final class SearchUtil {
                         QueryBuilders.matchQuery(field, dto.getSearchTerm())
                                 .operator(Operator.AND))
                 .orElse(null);
+    }
+
+    private static QueryBuilder getQueryBuilder(final String field, final Date date) {
+        return QueryBuilders.rangeQuery(field).gte(date);
     }
 }

@@ -21,8 +21,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
 
 @Service
 public class VehicleService {
@@ -36,6 +38,13 @@ public class VehicleService {
         this.client = client;
     }
 
+    /**
+     * Used to search for vehicles based on data provided in the {@link SearchRequestDTO} DTO. For more info take a look
+     * at DTO javadoc.
+     *
+     * @param dto DTO containing info about what to search for.
+     * @return Returns a list of found vehicles.
+     */
     public List<Vehicle> search(final SearchRequestDTO dto) {
         final SearchRequest request = SearchUtil.buildSearchRequest(
                 Indices.VEHICLE_INDEX,
@@ -45,10 +54,26 @@ public class VehicleService {
         return searchInternal(request);
     }
 
+    /**
+     * Used to get all vehicles that have been created since forwarded date.
+     *
+     * @param date Date that is forwarded to the search.
+     * @return Returns all vehicles created since forwarded date.
+     */
     public List<Vehicle> getAllVehiclesCreatedSince(final Date date) {
         final SearchRequest request = SearchUtil.buildSearchRequest(
                 Indices.VEHICLE_INDEX,
                 "created",
+                date
+        );
+
+        return searchInternal(request);
+    }
+
+    public List<Vehicle> searchCreatedSince(final SearchRequestDTO dto, final Date date) {
+        final SearchRequest request = SearchUtil.buildSearchRequest(
+                Indices.VEHICLE_INDEX,
+                dto,
                 date
         );
 
